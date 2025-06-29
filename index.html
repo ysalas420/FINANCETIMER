@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8">
-  <title>Deal Timer Tracker – Calendar View</title>
+  <title>Deal Timer Tracker – Firebase Version</title>
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
     input, button, select { margin: 5px; padding: 5px; }
@@ -14,154 +14,151 @@
 </head>
 <body>
 
-  <h2>Deal Timer Tracker – Calendar View</h2>
+<h2>Deal Timer Tracker (Shared via Firebase)</h2>
 
-  <label>Select Date: <input type="date" id="selectedDate"></label>
-  <br><br>
-  <label>Stock Number: <input type="text" id="stockNumber"></label>
-  <label>Sales Manager: <input type="text" id="salesManager"></label>
-  <button onclick="dropDeal()">Drop Deal</button>
+<label>Select Date: <input type="date" id="selectedDate"></label>
+<br><br>
+<label>Stock Number: <input type="text" id="stockNumber"></label>
+<label>Sales Manager: <input type="text" id="salesManager"></label>
+<button onclick="dropDeal()">Drop Deal</button>
 
-  <table>
-    <thead>
-      <tr>
-        <th>Stock #</th>
-        <th>Sales Manager</th>
-        <th>Finance Manager</th>
-        <th>Dropped At</th>
-        <th>Picked Up At</th>
-        <th>Finished At</th>
-        <th>Time to Pickup</th>
-        <th>Time to Finish</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody id="dealTableBody"></tbody>
-  </table>
+<table>
+  <thead>
+    <tr>
+      <th>Stock #</th>
+      <th>Sales Manager</th>
+      <th>Finance Manager</th>
+      <th>Dropped At</th>
+      <th>Picked Up At</th>
+      <th>Finished At</th>
+      <th>Time to Pickup</th>
+      <th>Time to Finish</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody id="dealTableBody"></tbody>
+</table>
 
-  <script>
-    const calendarDeals = {};
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-    function getTodayDate() {
-      const today = new Date();
-      return today.toISOString().split("T")[0];
-    }
+<script>
+  // ✅ Your Firebase Config (already inserted)
+  const firebaseConfig = {
+    apiKey: "AIzaSyAktoYwM1PnW1W3zMcCyeaiMXpg8tTXt4",
+    authDomain: "financetimer.firebaseapp.com",
+    projectId: "financetimer",
+    storageBucket: "financetimer.appspot.com",
+    messagingSenderId: "303754960807",
+    appId: "1:303754960807:web:6edbd2bb78dcfda5ddc2",
+    measurementId: "G-38X1YPEP2Z"
+  };
 
-    document.getElementById("selectedDate").value = getTodayDate();
-    document.getElementById("selectedDate").addEventListener("change", renderTable);
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
 
-    function getCurrentDateKey() {
-      return document.getElementById("selectedDate").value;
-    }
+  function getDateKey() {
+    return document.getElementById("selectedDate").value;
+  }
 
-    function formatTime(date) {
-      return date ? new Date(date).toLocaleTimeString() : '';
-    }
+  document.getElementById("selectedDate").value = new Date().toISOString().split("T")[0];
+  document.getElementById("selectedDate").addEventListener("change", fetchDeals);
 
-    function timeDiff(start, end) {
-      if (!start || !end) return '';
-      const diff = (new Date(end) - new Date(start)) / 1000;
-      const min = Math.floor(diff / 60);
-      const sec = Math.floor(diff % 60);
-      return `${min}m ${sec}s`;
-    }
+  function formatTime(date) {
+    return date ? new Date(date).toLocaleTimeString() : '';
+  }
 
-    function dropDeal() {
-      const stock = document.getElementById("stockNumber").value;
-      const sales = document.getElementById("salesManager").value;
+  function timeDiff(start, end) {
+    if (!start || !end) return '';
+    const diff = (new Date(end) - new Date(start)) / 1000;
+    const min = Math.floor(diff / 60);
+    const sec = Math.floor(diff % 60);
+    return `${min}m ${sec}s`;
+  }
 
-      if (!stock || !sales) {
-        alert("Please enter Stock Number and Sales Manager.");
-        return;
-      }
+  async function dropDeal() {
+    const stock = document.getElementById("stockNumber").value;
+    const sales = document.getElementById("salesManager").value;
+    const dateKey = getDateKey();
 
-      const deal = {
-        stock,
-        sales,
-        finance: '',
-        droppedAt: new Date(),
-        pickedUpAt: null,
-        finishedAt: null
-      };
+    if (!stock || !sales) return alert("Please enter all fields.");
 
-      const key = getCurrentDateKey();
-      if (!calendarDeals[key]) {
-        calendarDeals[key] = [];
-      }
+    await db.collection("deals").add({
+      stock,
+      sales,
+      finance: "",
+      droppedAt: new Date().toISOString(),
+      pickedUpAt: null,
+      finishedAt: null,
+      date: dateKey
+    });
 
-      calendarDeals[key].push(deal);
-      renderTable();
+    document.getElementById("stockNumber").value = '';
+    document.getElementById("salesManager").value = '';
+  }
 
-      document.getElementById("stockNumber").value = '';
-      document.getElementById("salesManager").value = '';
-    }
+  async function setFinanceManagerAndPickUp(id) {
+    const input = document.getElementById(`financeInput-${id}`);
+    const name = input.value.trim();
+    if (!name) return alert("Enter Finance Manager name.");
 
-    function setFinanceManagerAndPickUp(index) {
-      const input = document.getElementById(`financeInput-${index}`);
-      const name = input.value.trim();
-      if (!name) {
-        alert("Please enter Finance Manager name.");
-        return;
-      }
+    await db.collection("deals").doc(id).update({
+      finance: name,
+      pickedUpAt: new Date().toISOString()
+    });
+  }
 
-      const key = getCurrentDateKey();
-      calendarDeals[key][index].finance = name;
-      calendarDeals[key][index].pickedUpAt = new Date();
-      renderTable();
-    }
+  async function finishDeal(id) {
+    await db.collection("deals").doc(id).update({
+      finishedAt: new Date().toISOString()
+    });
+  }
 
-    function finishDeal(index) {
-      const key = getCurrentDateKey();
-      calendarDeals[key][index].finishedAt = new Date();
-      renderTable();
-    }
+  function fetchDeals() {
+    const dateKey = getDateKey();
+    db.collection("deals")
+      .where("date", "==", dateKey)
+      .orderBy("droppedAt")
+      .onSnapshot(snapshot => {
+        const tbody = document.getElementById("dealTableBody");
+        tbody.innerHTML = '';
 
-    function renderTable() {
-      const key = getCurrentDateKey();
-      const deals = calendarDeals[key] || [];
-      const tbody = document.getElementById("dealTableBody");
-      tbody.innerHTML = '';
+        snapshot.forEach(doc => {
+          const deal = doc.data();
+          const id = doc.id;
 
-      deals.forEach((deal, index) => {
-        const row = document.createElement("tr");
+          const row = document.createElement("tr");
 
-        let financeCell = '';
-        if (!deal.pickedUpAt) {
-          financeCell = `
-            <input class="finance-input" type="text" id="financeInput-${index}" value="${deal.finance}" placeholder="Enter name">
-            <br>
-            <button onclick="setFinanceManagerAndPickUp(${index})">Pick Up</button>
+          const financeCell = !deal.pickedUpAt
+            ? `<input class="finance-input" type="text" id="financeInput-${id}" value="${deal.finance}" placeholder="Enter name">
+               <br>
+               <button onclick="setFinanceManagerAndPickUp('${id}')">Pick Up</button>`
+            : deal.finance;
+
+          const actions = deal.pickedUpAt && !deal.finishedAt
+            ? `<button onclick="finishDeal('${id}')">Finish</button>`
+            : deal.finishedAt ? "Completed" : '';
+
+          row.innerHTML = `
+            <td>${deal.stock}</td>
+            <td>${deal.sales}</td>
+            <td>${financeCell}</td>
+            <td>${formatTime(deal.droppedAt)}</td>
+            <td>${formatTime(deal.pickedUpAt)}</td>
+            <td>${formatTime(deal.finishedAt)}</td>
+            <td>${timeDiff(deal.droppedAt, deal.pickedUpAt)}</td>
+            <td>${timeDiff(deal.pickedUpAt, deal.finishedAt)}</td>
+            <td>${actions}</td>
           `;
-        } else {
-          financeCell = deal.finance;
-        }
-
-        let actions = '';
-        if (deal.pickedUpAt && !deal.finishedAt) {
-          actions = `<button onclick="finishDeal(${index})">Finish</button>`;
-        } else if (deal.finishedAt) {
-          actions = `Completed`;
-        }
-
-        row.innerHTML = `
-          <td>${deal.stock}</td>
-          <td>${deal.sales}</td>
-          <td>${financeCell}</td>
-          <td>${formatTime(deal.droppedAt)}</td>
-          <td>${formatTime(deal.pickedUpAt)}</td>
-          <td>${formatTime(deal.finishedAt)}</td>
-          <td>${timeDiff(deal.droppedAt, deal.pickedUpAt)}</td>
-          <td>${timeDiff(deal.pickedUpAt, deal.finishedAt)}</td>
-          <td>${actions}</td>
-        `;
-
-        tbody.appendChild(row);
+          tbody.appendChild(row);
+        });
       });
-    }
+  }
 
-    // Initial render
-    renderTable();
-  </script>
+  // Load current date's data on start
+  fetchDeals();
+</script>
 
 </body>
 </html>
