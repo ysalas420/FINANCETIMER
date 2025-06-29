@@ -57,7 +57,6 @@
 
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
-  console.log("✅ Firebase initialized");
 
   function getDateKey() {
     return document.getElementById("selectedDate").value;
@@ -66,13 +65,13 @@
   document.getElementById("selectedDate").value = new Date().toISOString().split("T")[0];
   document.getElementById("selectedDate").addEventListener("change", fetchDeals);
 
-  function formatTime(date) {
-    return date ? new Date(date).toLocaleTimeString() : '';
+  function formatTime(ts) {
+    return ts ? ts.toDate().toLocaleTimeString() : '';
   }
 
-  function timeDiff(start, end) {
-    if (!start || !end) return '';
-    const diff = (new Date(end) - new Date(start)) / 1000;
+  function timeDiff(startTS, endTS) {
+    if (!startTS || !endTS) return '';
+    const diff = (endTS.toDate() - startTS.toDate()) / 1000;
     const min = Math.floor(diff / 60);
     const sec = Math.floor(diff % 60);
     return `${min}m ${sec}s`;
@@ -89,7 +88,7 @@
       stock,
       sales,
       finance: "",
-      droppedAt: new Date().toISOString(),
+      droppedAt: firebase.firestore.Timestamp.now(),
       pickedUpAt: null,
       finishedAt: null,
       date: dateKey
@@ -106,13 +105,13 @@
 
     await db.collection("deals").doc(id).update({
       finance: name,
-      pickedUpAt: new Date().toISOString()
+      pickedUpAt: firebase.firestore.Timestamp.now()
     });
   }
 
   async function finishDeal(id) {
     await db.collection("deals").doc(id).update({
-      finishedAt: new Date().toISOString()
+      finishedAt: firebase.firestore.Timestamp.now()
     });
   }
 
