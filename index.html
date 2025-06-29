@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Deal Timer Tracker – Firebase Safe Version</title>
+  <title>Deal Timer Tracker – Firebase Enhanced</title>
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
     input, button, select { margin: 5px; padding: 5px; }
@@ -10,6 +10,9 @@
     th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
     th { background-color: #f4f4f4; }
     input.finance-input { width: 120px; }
+    .status-yellow { background-color: #fff9c4; }  /* Dropped */
+    .status-orange { background-color: #ffe0b2; }  /* Picked up */
+    .status-green { background-color: #c8e6c9; }   /* Finished */
   </style>
 </head>
 <body>
@@ -95,6 +98,13 @@
     });
   }
 
+  async function deleteDeal(id) {
+    const confirmDelete = confirm("Are you sure you want to delete this deal?");
+    if (confirmDelete) {
+      await db.collection("deals").doc(id).delete();
+    }
+  }
+
   function format(ts) {
     return ts?.toDate?.().toLocaleTimeString() || '';
   }
@@ -111,6 +121,10 @@
           const d = doc.data();
           const id = doc.id;
 
+          let statusClass = "status-yellow";
+          if (d.pickedUpAt && !d.finishedAt) statusClass = "status-orange";
+          if (d.finishedAt) statusClass = "status-green";
+
           let financeCell = d.finance;
           if (!d.pickedUpAt) {
             financeCell = `
@@ -119,22 +133,24 @@
               <button onclick="setFinanceManagerAndPickUp('${id}')">Pick Up</button>`;
           }
 
-          const actions = d.pickedUpAt && !d.finishedAt
-            ? `<button onclick="finishDeal('${id}')">Finish</button>`
-            : d.finishedAt ? "✔ Done" : "";
-
-          const row = `
-            <tr>
-              <td>${d.stock}</td>
-              <td>${d.sales}</td>
-              <td>${financeCell}</td>
-              <td>${format(d.droppedAt)}</td>
-              <td>${format(d.pickedUpAt)}</td>
-              <td>${format(d.finishedAt)}</td>
-              <td>${actions}</td>
-            </tr>
+          const actions = `
+            ${d.pickedUpAt && !d.finishedAt ? `<button onclick="finishDeal('${id}')">Finish</button>` : d.finishedAt ? "✔ Done" : ""}
+            <br>
+            <button onclick="deleteDeal('${id}')" style="margin-top:5px; color:red;">Delete</button>
           `;
-          tbody.innerHTML += row;
+
+          const row = document.createElement("tr");
+          row.className = statusClass;
+          row.innerHTML = `
+            <td>${d.stock}</td>
+            <td>${d.sales}</td>
+            <td>${financeCell}</td>
+            <td>${format(d.droppedAt)}</td>
+            <td>${format(d.pickedUpAt)}</td>
+            <td>${format(d.finishedAt)}</td>
+            <td>${actions}</td>
+          `;
+          tbody.appendChild(row);
         });
       });
   }
