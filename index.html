@@ -66,11 +66,11 @@
   document.getElementById("selectedDate").addEventListener("change", fetchDeals);
 
   function formatTime(ts) {
-    return ts ? ts.toDate().toLocaleTimeString() : '';
+    return ts && ts.toDate ? ts.toDate().toLocaleTimeString() : '';
   }
 
   function timeDiff(startTS, endTS) {
-    if (!startTS || !endTS) return '';
+    if (!startTS || !endTS || !startTS.toDate || !endTS.toDate) return '';
     const diff = (endTS.toDate() - startTS.toDate()) / 1000;
     const min = Math.floor(diff / 60);
     const sec = Math.floor(diff % 60);
@@ -117,14 +117,20 @@
 
   function fetchDeals() {
     const dateKey = getDateKey();
+
     db.collection("deals")
       .where("date", "==", dateKey)
-      .orderBy("droppedAt")
       .onSnapshot(snapshot => {
         const tbody = document.getElementById("dealTableBody");
         tbody.innerHTML = '';
 
-        snapshot.forEach(doc => {
+        const sortedDocs = snapshot.docs.sort((a, b) => {
+          const d1 = a.data().droppedAt?.toDate?.() || new Date(0);
+          const d2 = b.data().droppedAt?.toDate?.() || new Date(0);
+          return d1 - d2;
+        });
+
+        sortedDocs.forEach(doc => {
           const deal = doc.data();
           const id = doc.id;
 
