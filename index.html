@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Deal Timer Tracker – Calendar View</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    input, button, select { margin: 5px; padding: 5px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
+    th { background-color: #f4f4f4; }
+    input.finance-input { width: 120px; }
+  </style>
+</head>
+<body>
+
+  <h2>Deal Timer Tracker – Calendar View</h2>
+
+  <label>Select Date: <input type="date" id="selectedDate"></label>
+  <br><br>
+  <label>Stock Number: <input type="text" id="stockNumber"></label>
+  <label>Sales Manager: <input type="text" id="salesManager"></label>
+  <button onclick="dropDeal()">Drop Deal</button>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Stock #</th>
+        <th>Sales Manager</th>
+        <th>Finance Manager</th>
+        <th>Dropped At</th>
+        <th>Picked Up At</th>
+        <th>Finished At</th>
+        <th>Time to Pickup</th>
+        <th>Time to Finish</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="dealTableBody"></tbody>
+  </table>
+
+  <script>
+    const calendarDeals = {};
+
+    function getTodayDate() {
+      const today = new Date();
+      return today.toISOString().split("T")[0];
+    }
+
+    document.getElementById("selectedDate").value = getTodayDate();
+    document.getElementById("selectedDate").addEventListener("change", renderTable);
+
+    function getCurrentDateKey() {
+      return document.getElementById("selectedDate").value;
+    }
+
+    function formatTime(date) {
+      return date ? new Date(date).toLocaleTimeString() : '';
+    }
+
+    function timeDiff(start, end) {
+      if (!start || !end) return '';
+      const diff = (new Date(end) - new Date(start)) / 1000;
+      const min = Math.floor(diff / 60);
+      const sec = Math.floor(diff % 60);
+      return `${min}m ${sec}s`;
+    }
+
+    function dropDeal() {
+      const stock = document.getElementById("stockNumber").value;
+      const sales = document.getElementById("salesManager").value;
+
+      if (!stock || !sales) {
+        alert("Please enter Stock Number and Sales Manager.");
+        return;
+      }
+
+      const deal = {
+        stock,
+        sales,
+        finance: '',
+        droppedAt: new Date(),
+        pickedUpAt: null,
+        finishedAt: null
+      };
+
+      const key = getCurrentDateKey();
+      if (!calendarDeals[key]) {
+        calendarDeals[key] = [];
+      }
+
+      calendarDeals[key].push(deal);
+      renderTable();
+
+      document.getElementById("stockNumber").value = '';
+      document.getElementById("salesManager").value = '';
+    }
+
+    function setFinanceManagerAndPickUp(index) {
+      const input = document.getElementById(`financeInput-${index}`);
+      const name = input.value.trim();
+      if (!name) {
+        alert("Please enter Finance Manager name.");
+        return;
+      }
+
+      const key = getCurrentDateKey();
+      calendarDeals[key][index].finance = name;
+      calendarDeals[key][index].pickedUpAt = new Date();
+      renderTable();
+    }
+
+    function finishDeal(index) {
+      const key = getCurrentDateKey();
+      calendarDeals[key][index].finishedAt = new Date();
+      renderTable();
+    }
+
+    function renderTable() {
+      const key = getCurrentDateKey();
+      const deals = calendarDeals[key] || [];
+      const tbody = document.getElementById("dealTableBody");
+      tbody.innerHTML = '';
+
+      deals.forEach((deal, index) => {
+        const row = document.createElement("tr");
+
+        let financeCell = '';
+        if (!deal.pickedUpAt) {
+          financeCell = `
+            <input class="finance-input" type="text" id="financeInput-${index}" value="${deal.finance}" placeholder="Enter name">
+            <br>
+            <button onclick="setFinanceManagerAndPickUp(${index})">Pick Up</button>
+          `;
+        } else {
+          financeCell = deal.finance;
+        }
+
+        let actions = '';
+        if (deal.pickedUpAt && !deal.finishedAt) {
+          actions = `<button onclick="finishDeal(${index})">Finish</button>`;
+        } else if (deal.finishedAt) {
+          actions = `Completed`;
+        }
+
+        row.innerHTML = `
+          <td>${deal.stock}</td>
+          <td>${deal.sales}</td>
+          <td>${financeCell}</td>
+          <td>${formatTime(deal.droppedAt)}</td>
+          <td>${formatTime(deal.pickedUpAt)}</td>
+          <td>${formatTime(deal.finishedAt)}</td>
+          <td>${timeDiff(deal.droppedAt, deal.pickedUpAt)}</td>
+          <td>${timeDiff(deal.pickedUpAt, deal.finishedAt)}</td>
+          <td>${actions}</td>
+        `;
+
+        tbody.appendChild(row);
+      });
+    }
+
+    // Initial render
+    renderTable();
+  </script>
+
+</body>
+</html>
