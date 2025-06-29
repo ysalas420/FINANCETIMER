@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Deal Timer Tracker – Firebase Version</title>
+  <title>Deal Timer Tracker – Firebase Safe Version</title>
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
     input, button, select { margin: 5px; padding: 5px; }
@@ -14,11 +14,10 @@
 </head>
 <body>
 
-<h2>Deal Timer Tracker (Shared via Firebase)</h2>
+<h2>Deal Timer Tracker (Live & Shared)</h2>
 
-<label>Select Date: <input type="date" id="selectedDate"></label>
-<br><br>
-<label>Stock Number: <input type="text" id="stockNumber"></label>
+<label>Select Date: <input type="date" id="selectedDate"></label><br><br>
+<label>Stock #: <input type="text" id="stockNumber"></label>
 <label>Sales Manager: <input type="text" id="salesManager"></label>
 <button onclick="dropDeal()">Drop Deal</button>
 
@@ -31,8 +30,6 @@
       <th>Dropped At</th>
       <th>Picked Up At</th>
       <th>Finished At</th>
-      <th>Time to Pickup</th>
-      <th>Time to Finish</th>
       <th>Actions</th>
     </tr>
   </thead>
@@ -44,7 +41,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <script>
-  // ✅ Your Firebase Config
   const firebaseConfig = {
     apiKey: "AIzaSyAktoYwM1PnW1W3zMcCyeaiMXpg8tTXt4",
     authDomain: "financetimer.firebaseapp.com",
@@ -58,31 +54,15 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
-  function getDateKey() {
-    return document.getElementById("selectedDate").value;
-  }
-
   document.getElementById("selectedDate").value = new Date().toISOString().split("T")[0];
   document.getElementById("selectedDate").addEventListener("change", fetchDeals);
 
-  function formatTime(ts) {
-    return ts && ts.toDate ? ts.toDate().toLocaleTimeString() : '';
-  }
-
-  function timeDiff(startTS, endTS) {
-    if (!startTS || !endTS || !startTS.toDate || !endTS.toDate) return '';
-    const diff = (endTS.toDate() - startTS.toDate()) / 1000;
-    const min = Math.floor(diff / 60);
-    const sec = Math.floor(diff % 60);
-    return `${min}m ${sec}s`;
-  }
-
   async function dropDeal() {
-    const stock = document.getElementById("stockNumber").value;
-    const sales = document.getElementById("salesManager").value;
-    const dateKey = getDateKey();
+    const stock = document.getElementById("stockNumber").value.trim();
+    const sales = document.getElementById("salesManager").value.trim();
+    const date = document.getElementById("selectedDate").value;
 
-    if (!stock || !sales) return alert("Please enter all fields.");
+    if (!stock || !sales) return alert("Please enter all fields");
 
     await db.collection("deals").add({
       stock,
@@ -91,7 +71,7 @@
       droppedAt: firebase.firestore.Timestamp.now(),
       pickedUpAt: null,
       finishedAt: null,
-      date: dateKey
+      date
     });
 
     document.getElementById("stockNumber").value = '';
@@ -101,7 +81,7 @@
   async function setFinanceManagerAndPickUp(id) {
     const input = document.getElementById(`financeInput-${id}`);
     const name = input.value.trim();
-    if (!name) return alert("Enter Finance Manager name.");
+    if (!name) return alert("Enter Finance Manager");
 
     await db.collection("deals").doc(id).update({
       finance: name,
@@ -115,54 +95,50 @@
     });
   }
 
-  function fetchDeals() {
-    const dateKey = getDateKey();
+  function format(ts) {
+    return ts?.toDate?.().toLocaleTimeString() || '';
+  }
 
+  function fetchDeals() {
+    const dateKey = document.getElementById("selectedDate").value;
     db.collection("deals")
       .where("date", "==", dateKey)
       .onSnapshot(snapshot => {
         const tbody = document.getElementById("dealTableBody");
         tbody.innerHTML = '';
 
-        const sortedDocs = snapshot.docs.sort((a, b) => {
-          const d1 = a.data().droppedAt?.toDate?.() || new Date(0);
-          const d2 = b.data().droppedAt?.toDate?.() || new Date(0);
-          return d1 - d2;
-        });
-
-        sortedDocs.forEach(doc => {
-          const deal = doc.data();
+        snapshot.forEach(doc => {
+          const d = doc.data();
           const id = doc.id;
 
-          const row = document.createElement("tr");
+          let financeCell = d.finance;
+          if (!d.pickedUpAt) {
+            financeCell = `
+              <input class="finance-input" type="text" id="financeInput-${id}" value="${d.finance}" placeholder="Finance Manager">
+              <br>
+              <button onclick="setFinanceManagerAndPickUp('${id}')">Pick Up</button>`;
+          }
 
-          const financeCell = !deal.pickedUpAt
-            ? `<input class="finance-input" type="text" id="financeInput-${id}" value="${deal.finance}" placeholder="Enter name">
-               <br>
-               <button onclick="setFinanceManagerAndPickUp('${id}')">Pick Up</button>`
-            : deal.finance;
-
-          const actions = deal.pickedUpAt && !deal.finishedAt
+          const actions = d.pickedUpAt && !d.finishedAt
             ? `<button onclick="finishDeal('${id}')">Finish</button>`
-            : deal.finishedAt ? "Completed" : '';
+            : d.finishedAt ? "✔ Done" : "";
 
-          row.innerHTML = `
-            <td>${deal.stock}</td>
-            <td>${deal.sales}</td>
-            <td>${financeCell}</td>
-            <td>${formatTime(deal.droppedAt)}</td>
-            <td>${formatTime(deal.pickedUpAt)}</td>
-            <td>${formatTime(deal.finishedAt)}</td>
-            <td>${timeDiff(deal.droppedAt, deal.pickedUpAt)}</td>
-            <td>${timeDiff(deal.pickedUpAt, deal.finishedAt)}</td>
-            <td>${actions}</td>
+          const row = `
+            <tr>
+              <td>${d.stock}</td>
+              <td>${d.sales}</td>
+              <td>${financeCell}</td>
+              <td>${format(d.droppedAt)}</td>
+              <td>${format(d.pickedUpAt)}</td>
+              <td>${format(d.finishedAt)}</td>
+              <td>${actions}</td>
+            </tr>
           `;
-          tbody.appendChild(row);
+          tbody.innerHTML += row;
         });
       });
   }
 
-  // Load today's data on startup
   fetchDeals();
 </script>
 
